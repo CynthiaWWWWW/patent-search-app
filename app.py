@@ -6,7 +6,7 @@ import json
 st.set_page_config(page_title="全球專利搜尋工具", page_icon="💡")
 
 st.title("💡 全球專利 (USPTO) 快速搜尋器")
-st.markdown("透過 PatentsView API 查詢美國專利。支援雙關鍵字篩選。")
+st.markdown("透過 PatentsView API 查詢美國專利。")
 
 # 側邊欄設定
 with st.sidebar:
@@ -19,7 +19,7 @@ with st.sidebar:
 
 # 核心搜尋功能
 def run_patent_search(pn, kw1, kw2, lmt):
-    # 1. 建立搜尋邏輯 (Query Dictionary)
+    # 1. 構建搜尋語法
     if pn:
         query = {"patent_number": pn}
     else:
@@ -27,7 +27,6 @@ def run_patent_search(pn, kw1, kw2, lmt):
         if not k_list:
             st.error("請輸入號碼或關鍵字！")
             return
-        
         if len(k_list) == 1:
             query = {"_text_any": {"patent_title": k_list[0]}}
         else:
@@ -36,36 +35,38 @@ def run_patent_search(pn, kw1, kw2, lmt):
                 {"_text_any": {"patent_title": k_list[1]}}
             ]}
     
-    # 2. 設定回傳欄位
-    fields = ["patent_number", "patent_title", "patent_date", "assignee_organization", "patent_abstract"]
+    # 2. 簡化回傳欄位，增加穩定性
+    fields = ["patent_number", "patent_title", "patent_date", "assignee_organization"]
     
-    # 3. 準備 POST 請求的資料 (Payload)
-    # 我們改用 POST 方式，這對複雜的 JSON 查詢更友善
-    payload = {
-        "q": query,
-        "f": fields,
-        "o": {"matched_row_count": True, "page": 1, "per_page": lmt}
+    # 3. 準備參數 (使用 GET 方式)
+    params = {
+        "q": json.dumps(query),
+        "f": json.dumps(fields),
+        "o": json.dumps({"matched_row_count": True, "per_page": lmt})
     }
     
     api_url = "https://api.patentsview.org/patents/query"
     
-    with st.spinner('正在與 USPTO 伺服器同步中...'):
+    with st.spinner('正在從專利資料庫檢索中...'):
         try:
-            # 改用 POST 並直接傳送 json=payload
-            response = requests.post(api_url, json=payload, timeout=20)
+            # 發送 GET 請求
+            response = requests.get(api_url, params=params, timeout=15)
             
-            # 如果伺服器掛了或繁忙，會傳回 500 或 503
+            # --- 除錯輔助：如果解析 JSON 失敗，先檢查回傳內容 ---
             if response.status_code != 200:
-                st.error(f"伺服器回應異常 (錯誤代碼: {response.status_code})")
-                st.info("💡 提示：PatentsView 伺服器有時會暫時繁忙，請稍等 10 秒後再試一次。")
+                st.error(f"伺服器錯誤 (代碼: {response.status_code})")
                 return
-            
-            # 取得 JSON 結果
-            data = response.json()
+
+            try:
+                data = response.json()
+            except Exception:
+                st.error("⚠️ 伺服器回傳了無效的資料格式。")
+                st.write("伺服器實際回傳內容：", response.text[:200]) # 顯示前200個字幫助抓蟲
+                return
+
             results = data.get('patents')
-            
             if not results:
-                st.warning("查無結果，請嘗試簡化關鍵字。")
+                st.warning("查無結果，請嘗試換個單字搜尋（例如：Laser）。")
                 return
 
             st.divider()
@@ -75,10 +76,13 @@ def run_patent_search(pn, kw1, kw2, lmt):
                 p_id = p.get('patent_number')
                 p_title = p.get('patent_title')
                 p_date = p.get('patent_date')
-                assignees = p.get('assignees')
-                assignee_name = assignees[0].get('assignee_organization') if assignees and assignees[0] else "個人/未註明組織"
-                p_abstract = p.get('patent_abstract', '無摘要資訊')
                 
+                # 安全取出專利權人名稱
+                assignees = p.get('assignees', [])
+                assignee_name = "個人/未註明"
+                if assignees and isinstance(assignees, list):
+                    assignee_name = assignees[0].get('assignee_organization') or "個人名義"
+
                 google_url = f"https://patents.google.com/patent/US{p_id}"
 
                 st.markdown(f"""
@@ -93,10 +97,6 @@ def run_patent_search(pn, kw1, kw2, lmt):
                         <div style="margin-bottom: 4px;"><b>專利標題：</b> <span style="color: #333;">{p_title}</span></div>
                         <div style="margin-bottom: 4px;"><b>公告日期：</b> {p_date}</div>
                         <div style="margin-bottom: 10px;"><b>專利權人：</b> {assignee_name}</div>
-                        <details style="margin-bottom: 10px; cursor: pointer; font-size: 0.95em; color: #444;">
-                            <summary><b>查看專利摘要 (Abstract)</b></summary>
-                            <p style="background: white; padding: 10px; border-radius: 4px; margin-top: 5px; border: 1px solid #ddd;">{p_abstract}</p>
-                        </details>
                         <div style="margin-top: 12px;">
                             <a href="{google_url}" target="_blank" style="color: #4f46e5; font-weight: bold; text-decoration: underline;">👉 前往 Google Patents 查看全文</a>
                         </div>
@@ -105,8 +105,7 @@ def run_patent_search(pn, kw1, kw2, lmt):
                 """, unsafe_allow_html=True)
 
         except Exception as e:
-            st.error(f"檢索出錯：{e}")
-            st.write("這通常是伺服器暫時斷線，請過幾秒後重新點擊搜尋。")
+            st.error(f"連線出錯：{e}")
 
 if st.sidebar.button("執行搜尋"):
     run_patent_search(p_num_search, p_keyword_1, p_keyword_2, limit)
