@@ -17,9 +17,8 @@ with st.sidebar:
     p_keyword_2 = st.text_input("技術關鍵字 2 (選填)", "").strip()
     limit = st.slider("顯示筆數", 5, 50, 15)
 
-# 核心搜尋功能
 def run_patent_search(pn, kw1, kw2, lmt):
-    # 1. 構建搜尋語法
+    # 1. 建立搜尋語法
     if pn:
         query = {"patent_number": pn}
     else:
@@ -35,38 +34,47 @@ def run_patent_search(pn, kw1, kw2, lmt):
                 {"_text_any": {"patent_title": k_list[1]}}
             ]}
     
-    # 2. 簡化回傳欄位，增加穩定性
+    # 2. 設定回傳欄位
     fields = ["patent_number", "patent_title", "patent_date", "assignee_organization"]
     
-    # 3. 準備參數 (使用 GET 方式)
+    # 3. 準備參數
     params = {
         "q": json.dumps(query),
         "f": json.dumps(fields),
         "o": json.dumps({"matched_row_count": True, "per_page": lmt})
     }
     
+    # --- 關鍵修正：加入強大的瀏覽器偽裝標頭 ---
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json",  # 強制要求回傳 JSON
+        "Referer": "https://patentsview.org/query" # 偽裝來源網頁
+    }
+    
     api_url = "https://api.patentsview.org/patents/query"
     
-    with st.spinner('正在從專利資料庫檢索中...'):
+    with st.spinner('正在從 USPTO 獲取數據...'):
         try:
-            # 發送 GET 請求
-            response = requests.get(api_url, params=params, timeout=15)
+            # 發送請求，加入 headers
+            response = requests.get(api_url, params=params, headers=headers, timeout=15)
             
-            # --- 除錯輔助：如果解析 JSON 失敗，先檢查回傳內容 ---
+            # 如果還是回傳 HTML (非 200)，印出狀態碼
             if response.status_code != 200:
-                st.error(f"伺服器錯誤 (代碼: {response.status_code})")
+                st.error(f"⚠️ 伺服器拒絕連線 (錯誤碼: {response.status_code})")
+                if response.status_code == 429:
+                    st.warning("您搜尋得太快了，請等 30 秒後再試。")
                 return
 
+            # 嘗試解析
             try:
                 data = response.json()
-            except Exception:
-                st.error("⚠️ 伺服器回傳了無效的資料格式。")
-                st.write("伺服器實際回傳內容：", response.text[:200]) # 顯示前200個字幫助抓蟲
+            except:
+                st.error("❌ 伺服器傳回了不正確的資料。這通常是 API 正在維修或連線被阻擋。")
                 return
 
             results = data.get('patents')
             if not results:
-                st.warning("查無結果，請嘗試換個單字搜尋（例如：Laser）。")
+                st.warning("查無結果，請更換關鍵字再試。")
                 return
 
             st.divider()
@@ -74,13 +82,12 @@ def run_patent_search(pn, kw1, kw2, lmt):
 
             for i, p in enumerate(results, 1):
                 p_id = p.get('patent_number')
-                p_title = p.get('patent_title')
-                p_date = p.get('patent_date')
+                p_title = p.get('patent_title', '無標題')
+                p_date = p.get('patent_date', '無日期')
                 
-                # 安全取出專利權人名稱
                 assignees = p.get('assignees', [])
-                assignee_name = "個人/未註明"
-                if assignees and isinstance(assignees, list):
+                assignee_name = "個人名義/未註明"
+                if assignees and isinstance(assignees, list) and assignees[0]:
                     assignee_name = assignees[0].get('assignee_organization') or "個人名義"
 
                 google_url = f"https://patents.google.com/patent/US{p_id}"
@@ -105,7 +112,7 @@ def run_patent_search(pn, kw1, kw2, lmt):
                 """, unsafe_allow_html=True)
 
         except Exception as e:
-            st.error(f"連線出錯：{e}")
+            st.error(f"連線失敗：{e}")
 
 if st.sidebar.button("執行搜尋"):
     run_patent_search(p_num_search, p_keyword_1, p_keyword_2, limit)
