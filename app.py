@@ -12,67 +12,58 @@ def ultimate_clean(text):
         return clean.strip()
     return ""
 
-# --- 3. CSS 進階美化 (包含縮小 Step 字體) ---
+# --- 3. 終極 CSS 優化 (壓縮空間 + 調整 Step 字體) ---
 st.markdown("""
     <style>
-    /* 總標題樣式 */
-    .main-title { font-size: 26px !important; font-weight: 800; color: #1E1E1E; margin-bottom: 20px; text-align: center; }
+    /* 移除 Streamlit 預設的上邊距，達成一頁式效果 */
+    .block-container { padding-top: 1.5rem !important; padding-bottom: 0rem !important; }
     
-    /* 讓 Step 說明文字變小 */
+    /* 總標題樣式 - 稍微縮小以節省空間 */
+    .main-title { font-size: 24px !important; font-weight: 800; color: #1E1E1E; margin-bottom: 10px; text-align: center; }
+    
+    /* Step 說明文字 - 調大至 20px */
     .step-text { 
-        font-size: 16px !important; 
+        font-size: 20px !important; 
         font-weight: 700; 
-        color: #555; 
-        margin-bottom: 10px; 
-        margin-top: 10px;
-        display: flex;
-        align-items: center;
+        color: #333; 
+        margin-bottom: 8px; 
+        margin-top: 5px;
+        border-left: 5px solid #4285F4;
+        padding-left: 10px;
     }
     
-    .label-en { font-size: 12px; color: #888; display: block; margin-bottom: -2px; margin-top: 10px; font-weight: 600; }
+    /* 欄位標籤 */
+    .label-en { font-size: 11px; color: #777; display: block; margin-bottom: -5px; margin-top: 5px; font-weight: 600; }
     
+    /* 緊湊化分隔線 */
+    hr { margin: 0.5rem 0 !important; }
+
     /* 按鈕樣式強化 */
     .stButton>button {
-        transition: all 0.3s ease;
         border-radius: 10px !important;
-        height: 3.2em !important;
+        height: 3em !important;
         font-size: 16px !important;
         font-weight: bold !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
 
-    /* 「確認鎖定」按鈕 (綠色) */
-    div.stButton > button {
-        background-color: #28a745 !important;
-        color: white !important;
-        border: none !important;
-    }
-    div.stButton > button:hover {
-        background-color: #218838 !important;
-        transform: translateY(-1px);
-    }
-
-    /* 「Google 搜尋」連結按鈕 (Google 藍) */
+    /* 「確認」按鈕綠色 */
+    div.stButton > button { background-color: #28a745 !important; color: white !important; border: none !important; }
+    
+    /* 「Google 搜尋」藍色 */
     .stLinkButton > a {
         background-color: #4285F4 !important;
         color: white !important;
         border-radius: 10px !important;
-        font-size: 20px !important;
+        font-size: 18px !important;
         font-weight: 700 !important;
-        padding: 0.7rem 1rem !important;
+        padding: 0.5rem 1rem !important;
         text-align: center !important;
-        border: 1px solid #3367d6 !important;
-        box-shadow: 0 6px 12px rgba(66, 133, 244, 0.2) !important;
-        transition: all 0.2s ease !important;
+        border: none !important;
+        display: block;
     }
-    .stLinkButton > a:hover {
-        background-color: #3367d6 !important;
-        transform: scale(1.01);
-        text-decoration: none !important;
-    }
-
-    /* 調整間距 */
-    .stAlert { border-radius: 10px !important; }
+    
+    /* 縮減 Widget 之間的間距 */
+    [data-testid="stVerticalBlock"] { gap: 0.5rem !important; }
     </style>
     <div class="main-title">💡 全球專利進階搜尋儀表板</div>
     """, unsafe_allow_html=True)
@@ -85,35 +76,31 @@ def on_input_change():
     st.session_state.confirmed = False
 
 # --- 4. 介面輸入區 ---
-st.markdown('<div class="step-text">🚀 Step 1: 填寫檢索條件 (即時生成預覽)</div>', unsafe_allow_html=True)
+st.markdown('<div class="step-text">Step 1: 填寫檢索條件</div>', unsafe_allow_html=True)
 
 with st.container(border=True):
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown('<span class="label-en">Technology Keywords</span>', unsafe_allow_html=True)
-        kw1 = st.text_input("主要技術關鍵字", placeholder="例如: Bipolar", key="k1", on_change=on_input_change)
-        kw2 = st.text_input("次要技術關鍵字", placeholder="例如: irrigat", key="k2", on_change=on_input_change)
-        exact_kw = st.checkbox("關鍵字需完全符合", value=False, key="ex_kw", on_change=on_input_change)
-        
-        st.divider()
+        st.markdown('<span class="label-en">Keywords</span>', unsafe_allow_html=True)
+        sub_c1, sub_c2 = st.columns(2)
+        kw1 = sub_c1.text_input("主要關鍵字", placeholder="Bipolar", key="k1", on_change=on_input_change, label_visibility="collapsed")
+        kw2 = sub_c2.text_input("次要關鍵字", placeholder="irrigat", key="k2", on_change=on_input_change, label_visibility="collapsed")
+        exact_kw = st.checkbox("關鍵字精準比對", value=False, key="ex_kw", on_change=on_input_change)
         
         st.markdown('<span class="label-en">Assignee / Company</span>', unsafe_allow_html=True)
-        assignee = st.text_input("專利權人 (公司)", placeholder="例如: Medtronic", key="k3", on_change=on_input_change)
-        exact_as = st.checkbox("公司名稱需完全符合", value=True, key="ex_as", on_change=on_input_change)
+        assignee = st.text_input("公司名稱", placeholder="Medtronic", key="k3", on_change=on_input_change, label_visibility="collapsed")
+        exact_as = st.checkbox("公司精準比對", value=True, key="ex_as", on_change=on_input_change)
     
     with col2:
-        st.markdown('<span class="label-en">Inventor Name</span>', unsafe_allow_html=True)
-        inventor = st.text_input("發明人", placeholder="例如: MALIS", key="k5", on_change=on_input_change)
-        exact_iv = st.checkbox("發明人姓名需完全符合", value=True, key="ex_iv", on_change=on_input_change)
+        st.markdown('<span class="label-en">Inventor / CPC</span>', unsafe_allow_html=True)
+        sub_i1, sub_i2 = st.columns(2)
+        inventor = sub_i1.text_input("發明人", placeholder="MALIS", key="k5", on_change=on_input_change, label_visibility="collapsed")
+        cpc = sub_i2.text_input("CPC 分類", placeholder="A61B", key="k4", on_change=on_input_change, label_visibility="collapsed")
+        exact_iv = st.checkbox("發明人精準比對", value=True, key="ex_iv", on_change=on_input_change)
         
-        st.divider()
-        
-        st.markdown('<span class="label-en">CPC Classification</span>', unsafe_allow_html=True)
-        cpc = st.text_input("CPC 分類號", key="k4", on_change=on_input_change)
-        
-        st.markdown('<span class="label-en">Results Per Page</span>', unsafe_allow_html=True)
-        p_limit = st.selectbox("每頁顯示筆數", [10, 20, 50, 100], index=1, on_change=on_input_change)
+        st.markdown('<span class="label-en">Display Results</span>', unsafe_allow_html=True)
+        p_limit = st.selectbox("每頁筆數", [10, 20, 50, 100], index=1, on_change=on_input_change, label_visibility="collapsed")
 
 # --- 5. 邏輯處理 ---
 params = {}
@@ -136,31 +123,31 @@ params['num'] = p_limit
 
 # --- 6. 預覽與確認區 ---
 if params:
-    st.divider()
-    
-    # 指令摘要預覽
+    # 摘要摘要 (一行式)
     summary = []
     if 'q' in params: summary.append(f"關鍵字: **{params['q']}**")
     if 'assignee' in params: summary.append(f"公司: **{params['assignee']}**")
-    if 'inventor' in params: summary.append(f"發明人: **{params['inventor']}**")
+    if 'inventor' in params: summary.append(f"人名: **{params['inventor']}**")
     
     st.info(" | ".join(summary))
 
-    if not st.session_state.confirmed:
-        st.markdown('<div class="step-text">🛠️ Step 2: 驗證指令並解鎖按鈕</div>', unsafe_allow_html=True)
-        if st.button("🚀 確認檢索條件", use_container_width=True):
+    c1, c2 = st.columns([1, 1])
+    
+    with c1:
+        st.markdown('<div class="step-text">Step 2: 驗證</div>', unsafe_allow_html=True)
+        if st.button("🚀 點此確認條件", use_container_width=True):
             st.session_state.confirmed = True
             st.rerun()
-    else:
-        st.markdown('<div class="step-text">🏁 Step 3: 發送檢索</div>', unsafe_allow_html=True)
-        query_string = urllib.parse.urlencode(params)
-        google_url = f"https://patents.google.com/?{query_string}"
-        
-        st.link_button("🔍 立即前往 Google Patents 搜尋結果", google_url, use_container_width=True)
-        
-        st.write("") # 增加一點間距
-        if st.button("🔄 修改條件 (重新鎖定)", use_container_width=False):
-            st.session_state.confirmed = False
-            st.rerun()
+            
+    with c2:
+        st.markdown('<div class="step-text">Step 3: 搜尋</div>', unsafe_allow_html=True)
+        if st.session_state.confirmed:
+            query_string = urllib.parse.urlencode(params)
+            google_url = f"https://patents.google.com/?{query_string}"
+            st.link_button("🔍 前往 Google Patents", google_url, use_container_width=True)
+        else:
+            st.button("待解鎖...", disabled=True, use_container_width=True)
 else:
-    st.info("💡 請填寫上方欄位以生成檢索指令。")
+    st.empty() # 保持空間整潔
+
+st.caption("Tip: 一頁式佈局。修改條件後需重新確認 Step 2。")
