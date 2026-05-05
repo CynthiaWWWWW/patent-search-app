@@ -12,36 +12,46 @@ def ultimate_clean(text):
         return clean.strip()
     return ""
 
-# --- 3. CSS 終極優化 (解決標題遮擋 + 階梯式緊湊佈局) ---
+# --- 3. CSS 修正版 (解決文字卡住問題) ---
 st.markdown("""
     <style>
-    /* 1. 修正標題遮擋：確保內容在 Streamlit Header 下方 */
+    /* 1. 確保內容不被頂部導覽列遮擋，並預留文字溢出空間 */
     .block-container { 
-        padding-top: 5rem !important; 
+        padding-top: 4.5rem !important; 
         padding-bottom: 1rem !important; 
         max-width: 1100px; 
     }
     
-    /* 隱藏頂部裝飾條(可選)讓視覺更乾淨 */
-    header {visibility: hidden;}
+    header { visibility: hidden; }
 
-    .main-title { font-size: 28px !important; font-weight: 800; color: #1E1E1E; margin-bottom: 15px; text-align: center; }
+    /* 2. 標題：增加 line-height 確保中文字不被削掉 */
+    .main-title { 
+        font-size: 30px !important; 
+        font-weight: 800; 
+        color: #1E1E1E; 
+        margin-bottom: 20px; 
+        text-align: center;
+        line-height: 1.4 !important; /* 關鍵：增加行高 */
+    }
     
-    /* 2. Step 標題樣式 - 極致緊密 */
+    /* 3. Step 標題：放寬容器高度 */
     .step-text { 
         font-size: 22px !important; 
         font-weight: 700; 
         color: #1E1E1E; 
-        margin-bottom: 5px !important; 
-        margin-top: 0px !important; /* 完全移除頂部間距 */
+        margin-bottom: 10px !important; 
+        margin-top: 5px !important; 
         display: flex;
         align-items: center;
+        line-height: 1.5 !important; /* 關鍵：增加行高 */
+        overflow: visible !important; /* 確保不截斷 */
     }
+    
     .step-num {
         background-color: #4285F4;
         color: white;
         border-radius: 50%;
-        width: 32px;
+        min-width: 32px; /* 改用 min-width 避免圓形變形 */
         height: 32px;
         display: inline-flex;
         justify-content: center;
@@ -50,18 +60,19 @@ st.markdown("""
         font-size: 18px;
     }
     
-    /* 3. 欄位標籤 - 中英文 16px */
+    /* 4. 欄位標籤：加大垂直間距 */
     .field-label { 
         font-size: 16px !important; 
         color: #333; 
         display: block; 
-        margin-bottom: 4px; 
-        margin-top: 10px; 
+        margin-bottom: 8px !important; 
+        margin-top: 12px !important; 
         font-weight: 700; 
+        line-height: 1.4 !important;
     }
     .label-en-span { font-size: 16px !important; font-weight: 700; margin-left: 5px; }
     
-    /* 4. 緊實按鈕樣式 */
+    /* 5. 搜尋按鈕：優化文字間距 */
     .stLinkButton > a {
         background: linear-gradient(135deg, #4285F4 0%, #3367D6 100%) !important;
         color: white !important;
@@ -73,17 +84,20 @@ st.markdown("""
         border: none !important;
         display: block !important;
         box-shadow: 0 5px 15px rgba(66, 133, 244, 0.2) !important;
-        margin-top: 5px !important;
+        line-height: 1.2 !important;
     }
 
-    /* 5. 極致壓縮組件間距 */
-    [data-testid="stVerticalBlock"] { gap: 0.3rem !important; } /* 垂直間距極小化 */
-    [data-testid="stVerticalBlock"] > div { margin-top: -0.1rem !important; }
+    /* 6. 稍微放寬元件間距，避免擠壓 */
+    [data-testid="stVerticalBlock"] { gap: 0.6rem !important; }
     
-    /* 壓縮摘要資訊框 */
-    .stAlert { padding: 0.5rem 1rem !important; border-radius: 10px !important; border: 1px solid #e0e0e0 !important; }
+    /* 修正摘要資訊框文字 */
+    .stAlert { 
+        padding: 0.8rem 1rem !important; 
+        border-radius: 10px !important; 
+        line-height: 1.4 !important;
+    }
 
-    .stCheckbox { margin-top: -5px; }
+    .stCheckbox { margin-top: 2px; }
     </style>
     <div class="main-title">💡 全球專利進階搜尋儀表板</div>
     """, unsafe_allow_html=True)
@@ -97,8 +111,8 @@ with st.container(border=True):
     with col1:
         st.markdown('<span class="field-label">技術關鍵字 <span class="label-en-span">Technology Keywords</span></span>', unsafe_allow_html=True)
         sub_c1, sub_c2 = st.columns(2)
-        kw1 = sub_c1.text_input("主", placeholder="例如: Bipolar", key="k1", label_visibility="collapsed")
-        kw2 = sub_c2.text_input("次", placeholder="例如: irrigat", key="k2", label_visibility="collapsed")
+        kw1 = sub_c1.text_input("主", placeholder="例如: bipolar", key="k1", label_visibility="collapsed")
+        kw2 = sub_c2.text_input("次", placeholder="例如: irrigation", key="k2", label_visibility="collapsed")
         exact_kw = st.checkbox("關鍵字精準比對 Exact Match", value=False, key="ex_kw")
         
         st.markdown('<span class="field-label">專利權人 (公司) <span class="label-en-span">Assignee / Company</span></span>', unsafe_allow_html=True)
@@ -134,12 +148,10 @@ if inventor:
 if cpc: params['cpc'] = ultimate_clean(cpc)
 params['num'] = p_limit
 
-# --- 6. Step 2: 確認與搜尋區 (貼合級緊密) ---
+# --- 6. Step 2: 確認與搜尋區 ---
 if params:
-    # 這裡完全不再使用 st.write 或 st.divider，讓 Step 2 標題緊貼 Step 1 容器
     st.markdown('<div class="step-text"><span class="step-num">2</span> 確認並搜尋 Confirm & Search</div>', unsafe_allow_html=True)
     
-    # 預覽摘要
     summary = []
     if 'q' in params: summary.append(f"🔍 **{params['q']}**")
     if 'assignee' in params: summary.append(f"🏢 **{params['assignee']}**")
@@ -154,7 +166,4 @@ if params:
     st.link_button(f"🚀 前往 Google Patents 檢索結果", google_url, use_container_width=True)
 
 else:
-    st.info("💡 請填寫檢索條件以啟用搜尋。")
-
-# 頁尾
-st.markdown("<div style='text-align: center; color: #eee; font-size: 10px; margin-top: 10px;'>Global Patent Advanced Search Dashboard | v5.2 Ultra-Compact</div>", unsafe_allow_html=True)
+    st.info("💡 請於上方填寫至少一個關鍵字或條件以啟用搜尋。")
