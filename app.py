@@ -99,7 +99,7 @@ st.markdown("""
 
     .stCheckbox { margin-top: 2px; }
     </style>
-    <div class="main-title">💡 全球專利進階搜尋儀表板</div>
+    <div class="main-title">💡 全球專利進階搜尋產生器</div>
     """, unsafe_allow_html=True)
 
 # --- 4. Step 1: 輸入區 ---
