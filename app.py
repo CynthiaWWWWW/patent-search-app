@@ -6,30 +6,48 @@ st.set_page_config(page_title="全球專利搜尋工具", page_icon="💡")
 
 # 網頁大標題
 st.title("💡 全球專利 (USPTO) 快速搜尋器")
-st.markdown("透過 PatentsView API 查詢美國專利資訊。")
+st.markdown("透過 PatentsView API 查詢美國專利資訊。支援雙關鍵字篩選。")
 
 # 側邊欄設定
 with st.sidebar:
     st.header("搜尋參數")
+    # 專利號碼搜尋
     p_num_search = st.text_input("專利號碼 (例如 11500000)", "").strip()
     st.write("--- 或使用關鍵字搜尋 ---")
-    p_keyword = st.text_input("技術關鍵字", "Semiconductor")
+    
+    # 關鍵字搜尋欄位 1
+    p_keyword_1 = st.text_input("技術關鍵字 1 (必填)", "Semiconductor").strip()
+    # 關鍵字搜尋欄位 2 (選填)
+    p_keyword_2 = st.text_input("技術關鍵字 2 (選填)", "").strip()
+    
+    # 數量選擇
     limit = st.slider("顯示筆數", 5, 50, 10)
-    st.info("提示：專利資料庫極其龐大，建議關鍵字精確一點。")
+    st.info("提示：若填寫兩個關鍵字，系統將搜尋同時包含兩者的專利。")
 
 # 核心搜尋功能
-def run_patent_search(pn, kw, lmt):
+def run_patent_search(pn, kw1, kw2, lmt):
     # 1. 建立搜尋邏輯 (Query)
     if pn:
+        # 如果有號碼，優先精確搜尋專利號
         query = f'{{"patent_number":"{pn}"}}'
     else:
-        query = f'{{"_text_any":{{"patent_title":"{kw}"}}}}'
+        # 整理關鍵字
+        k_list = [k for k in [kw1, kw2] if k]
+        if not k_list:
+            st.error("請輸入專利號碼或至少一個關鍵字！")
+            return
+        
+        # 判斷是單一關鍵字還是雙關鍵字
+        if len(k_list) == 1:
+            query = f'{{"_text_any":{{"patent_title":"{k_list[0]}"}}}}'
+        else:
+            # 雙關鍵字使用 AND 邏輯：兩個關鍵字都必須在標題中
+            query = f'{{"_and":[{{"_text_any":{{"patent_title":"{k_list[0]}"}}}},{{"_text_any":{{"patent_title":"{k_list[1]}"}}}}]}}'
     
-    # 2. 設定要回傳的欄位 (Fields)
+    # 2. 設定要回傳的欄位
     fields = '["patent_number","patent_title","patent_date","assignee_organization","patent_abstract"]'
     
-    # 3. 建立 API 網址 (使用最穩定的字串組合方式)
-    # 這裡我們分開寫，避免反斜線造成錯誤
+    # 3. 建立 API 基礎網址
     base_url = "https://api.patentsview.org/patents/query"
     params = {
         "q": query,
@@ -39,11 +57,11 @@ def run_patent_search(pn, kw, lmt):
     
     with st.spinner('正在從專利資料庫檢索中...'):
         try:
-            # 使用 params 參數讓 requests 自動幫我們處理網址編碼，這最安全！
+            # 發送請求，讓 requests 自動處理編碼
             response = requests.get(base_url, params=params)
             
             if response.status_code != 200:
-                st.warning("找不到符合條件的專利，請確認號碼或關鍵字。")
+                st.warning("搜尋失敗，請嘗試減少關鍵字或確認號碼格式。")
                 return
             
             data = response.json()
@@ -98,4 +116,4 @@ def run_patent_search(pn, kw, lmt):
 
 # 按鈕啟動
 if st.sidebar.button("執行搜尋"):
-    run_patent_search(p_num_search, p_keyword, limit)
+    run_patent_search(p_num_search, p_keyword_1, p_keyword_2, limit)
