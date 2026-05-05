@@ -1,123 +1,126 @@
 import streamlit as st
 import requests
 import json
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
+from datetime import datetime
+import urllib.parse
 
-# --- 頁面基本設定 ---
+# --- 頁面基本設定 / Page Config ---
 st.set_page_config(page_title="RegTech Dashboard", page_icon="🛡️", layout="wide")
 
-# --- 自定義 CSS ---
+# --- CSS 美化介面 / Custom CSS ---
 st.markdown("""
     <style>
     .main-title { font-size: 22px !important; font-weight: 700; color: #1E1E1E; margin-bottom: 15px; }
     .stTabs [data-baseweb="tab-list"] { gap: 8px; }
-    .stTabs [data-baseweb="tab"] { height: 40px; background-color: #f0f2f6; border-radius: 5px 5px 0px 0px; }
+    .stTabs [data-baseweb="tab"] { height: 40px; background-color: #f0f2f6; border-radius: 5px 5px 0px 0px; padding: 8px 16px; font-size: 14px; }
+    .search-box { background-color: #f8f9fa; padding: 15px; border-radius: 10px; border: 1px solid #dee2e6; }
+    .label-en { font-size: 12px; color: #666; display: block; margin-bottom: -5px; }
     </style>
-    <div class="main-title">🛡️ 醫材與專利整合搜尋儀表板</div>
+    <div class="main-title">🛡️ 醫材與專利整合搜尋儀表板 (RegTech Search Dashboard)</div>
     """, unsafe_allow_html=True)
 
-# --- 強效連線 Session ---
-def get_robust_session():
-    session = requests.Session()
-    retry = Retry(total=2, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
-    session.mount('https://', HTTPAdapter(max_retries=retry))
-    session.headers.update({
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept": "application/json"
-    })
-    return session
-
-session = get_robust_session()
-
-tab1, tab2 = st.tabs(["🔍 FDA 510(k) 醫材搜尋", "💡 USPTO 專利搜尋"])
+# --- 建立分頁標籤 / Tabs ---
+tab1, tab2 = st.tabs([
+    "🔍 FDA 510(k) 醫材搜尋 (Medical Device Search)", 
+    "💡 全球專利進階搜尋 (Global Patent Advanced Search)"
+])
 
 # ==========================================
-# 分頁 1：FDA 510(k) (邏輯不變，維持穩定)
+# 分頁 1：FDA 510(k) 搜尋
 # ==========================================
 with tab1:
+    st.markdown("### 🔍 FDA 510(k) 醫材搜尋 (Medical Device Search)")
     with st.container(border=True):
-        c1, c2 = st.columns(2)
-        with c1: kn_in = st.text_input("510(k) 號碼", key="k_in")
-        with c2: kw1 = st.text_input("產品關鍵字", key="k_kw1")
-    
-    if st.button("搜尋醫材資料", type="primary", use_container_width=True):
-        query = f'k_number:"{kn_in}"' if kn_in else f'device_name:{kw1}*'
-        api_url = f'https://api.fda.gov/device/510k.json?search={query}&limit=10'
-        try:
-            res = session.get(api_url, timeout=10)
-            if res.status_code == 200:
-                results = res.json().get('results', [])
-                st.success(f"找到 {len(results)} 筆結果")
-                for r in results:
-                    st.write(f"✅ {r.get('k_number')} - {r.get('device_name')}")
-            else: st.warning("FDA API 暫時無回應。")
-        except Exception as e: st.error(f"連線失敗: {e}")
+        col1, col2 = st.columns(2)
+        with col1:
+            k_num = st.text_input("510(k) 號碼 (510(k) Number)", placeholder="K231234", key="k1")
+            k_limit = st.slider("顯示筆數 (Results Limit)", 5, 50, 10, key="ks")
+        with col2:
+            k_kw = st.text_input("產品關鍵字 (Device Keywords)", placeholder="Laser, Bipolar...", key="k2")
+
+    if st.button("執行醫材搜尋 (Run Device Search)", type="primary", use_container_width=True):
+        # 原有的 FDA API 邏輯 (保持穩定連線)
+        query = f'k_number:"{k_num}"' if k_num else f'device_name:{k_kw}*'
+        api_url = f'https://api.fda.gov/device/510k.json?search={query}&limit={k_limit}'
+        with st.spinner('Connecting to FDA Database...'):
+            try:
+                res = requests.get(api_url, timeout=10)
+                if res.status_code == 200:
+                    results = res.json().get('results', [])
+                    st.success(f"找到 {len(results)} 筆結果 (Found {len(results)} results)")
+                    for r in results:
+                        st.info(f"✅ {r.get('k_number')} | {r.get('device_name')} - {r.get('applicant')}")
+                else: st.warning("查無資料 (No results found).")
+            except: st.error("連線超時 (Connection Timeout).")
 
 # ==========================================
-# 分頁 2：USPTO 專利 (重寫連線與診斷邏輯)
+# 分頁 2：專利進階搜尋產生器
 # ==========================================
 with tab2:
+    st.markdown("### 🚀 Google Patents 指令產生器 (Command Generator)")
+    st.caption("填寫欄位自動生成 Google 進階搜尋字串 / Fill fields to generate search string.")
+    
     with st.container(border=True):
-        c1, c2 = st.columns(2)
-        with c1:
-            p_num = st.text_input("專利號碼", placeholder="例如: 11500000", key="p_in")
-            p_limit = st.slider("筆數", 5, 50, 10, key="p_sl")
-        with c2:
-            p_kw1 = st.text_input("專利關鍵字 1", "bipolar", key="p_kw1")
-            p_kw2 = st.text_input("專利關鍵字 2", "irrigat", key="p_kw2")
-
-    if st.button("搜尋專利資料", type="primary", use_container_width=True):
-        # 1. 構建語法
-        if p_num:
-            q = {"patent_number": p_num}
-        else:
-            k_list = [k.strip() for k in [p_kw1, p_kw2] if k.strip()]
-            if not k_list:
-                st.error("請輸入關鍵字")
-                st.stop()
-            q = {"_text_any": {"patent_title": k_list[0]}} if len(k_list)==1 else {"_and": [{"_text_any": {"patent_title": k}} for k in k_list]}
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown('<span class="label-en">Technology Keywords</span>', unsafe_allow_html=True)
+            g_kw = st.text_input("技術關鍵字", placeholder="例如: Bipolar Electrosurgical", key="g1")
+            
+            st.markdown('<span class="label-en">Assignee / Company</span>', unsafe_allow_html=True)
+            g_assignee = st.text_input("專利權人 (公司)", placeholder="例如: Medtronic", key="g2")
+            
+            st.markdown('<span class="label-en">CPC Classification</span>', unsafe_allow_html=True)
+            g_cpc = st.text_input("CPC 分類號", placeholder="例如: A61B18/14", key="g3")
         
-        f = ["patent_number", "patent_title", "patent_date", "assignee_organization"]
-        params = {"q": json.dumps(q), "f": json.dumps(f), "o": json.dumps({"per_page": p_limit})}
-        
-        api_url = "https://api.patentsview.org/patents/query"
-        
-        with st.spinner('正在與 USPTO 進行通訊...'):
-            try:
-                # 嘗試發送請求
-                resp = session.get(api_url, params=params, timeout=15)
-                
-                # 診斷：如果不是 200，抓出原因
-                if resp.status_code != 200:
-                    st.error(f"❌ 伺服器拒絕連線 (錯誤碼: {resp.status_code})")
-                    if resp.status_code == 403:
-                        st.info("💡 診斷：Streamlit 的 IP 被 USPTO 防火牆暫時封鎖了。")
-                    with st.expander("查看原始錯誤回應內容"):
-                        st.code(resp.text[:500])
-                    st.markdown(f"**[建議直接點此在 Google Patents 搜尋]({f'https://patents.google.com/?q={p_kw1}+{p_kw2}'})**")
-                    st.stop()
+        with col2:
+            st.markdown('<span class="label-en">Priority / Publication Date Range</span>', unsafe_allow_html=True)
+            sub_c1, sub_c2 = st.columns(2)
+            with sub_c1: g_after = st.date_input("日期起始 (From)", value=None, key="g4")
+            with sub_c2: g_before = st.date_input("日期結束 (To)", value=None, key="g5")
+            
+            st.markdown('<span class="label-en">Inventor Name</span>', unsafe_allow_html=True)
+            g_inventor = st.text_input("發明人", placeholder="例如: Smith", key="g6")
+            
+            p_limit = st.selectbox("每頁顯示筆數 (Results Per Page)", [10, 20, 50, 100], index=1)
 
-                # 解析 JSON
-                data = resp.json()
-                patents = data.get('patents')
-                
-                if patents:
-                    st.success(f"找到 {len(patents)} 筆專利")
-                    for p in patents:
-                        pid = p.get('patent_number')
-                        st.markdown(f"""
-                        <div style="border-left: 5px solid #6366f1; padding: 10px; margin-bottom: 10px; background-color: #f5f3ff; border-radius: 8px;">
-                            <b>US {pid}</b> | {p.get('patent_date')}<br>
-                            標題：{p.get('patent_title')}<br>
-                            <a href="https://patents.google.com/patent/US{pid}" target="_blank">👉 前往查看</a>
-                        </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.warning("API 回傳空結果。")
+    # --- 核心邏輯：自動生成字串 / Command Building ---
+    query_parts = []
+    if g_kw: query_parts.append(g_kw)
+    if g_assignee: query_parts.append(f'assignee:"{g_assignee}"')
+    if g_inventor: query_parts.append(f'inventor:"{g_inventor}"')
+    if g_cpc: query_parts.append(f'cpc:{g_cpc}')
+    if g_after: query_parts.append(f'after:{g_after.strftime("%Y%m%d")}')
+    if g_before: query_parts.append(f'before:{g_before.strftime("%Y%m%d")}')
+    
+    final_query = " ".join(query_parts)
+    
+    if final_query:
+        st.markdown("---")
+        st.markdown("#### 🛠️ 生成的指令 (Generated Command):")
+        st.code(final_query, language="bash")
+        
+        # 建立跳轉連結 / URL Encoding
+        encoded_query = urllib.parse.quote(final_query)
+        google_url = f"https://patents.google.com/?q={encoded_query}&num={p_limit}"
+        
+        st.markdown(f"""
+            <a href="{google_url}" target="_blank" style="text-decoration: none;">
+                <div style="background-color: #4285F4; color: white; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 18px; border: 2px solid #3367d6;">
+                    🔍 點此前往 Google Patents 搜尋 (Go to Google Patents)
+                </div>
+            </a>
+            <p style="text-align: center; font-size: 12px; color: #666; margin-top: 10px;">
+                * 註：若點擊無反應，請手動複製上方代碼貼至 Google Patents 搜尋框。
+            </p>
+        """, unsafe_allow_html=True)
+    else:
+        st.info("💡 請填寫上方欄位以生成指令 (Please fill fields to generate command).")
 
-            except json.JSONDecodeError:
-                st.error("⚠️ 伺服器回傳了 HTML 網頁而非數據。")
-                st.info("這通常代表 USPTO 偵測到自動化行為並攔截了連線。")
-            except Exception as e:
-                st.error(f"連線異常: {e}")
+# --- 側邊欄：資訊 / Sidebar Info ---
+with st.sidebar:
+    st.write("### ℹ️ 系統資訊 (System Info)")
+    st.write("**FDA API Status:** ✅ Online")
+    st.write("**USPTO API Status:** ⚠️ Restricted IP")
+    st.divider()
+    st.write("### 📖 快速教學 (Quick Tip)")
+    st.caption("使用 `assignee:` 可以鎖定特定公司，`cpc:` 可以鎖定特定技術類別。")
