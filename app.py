@@ -12,25 +12,25 @@ def ultimate_clean(text):
         return clean.strip()
     return ""
 
-# --- 3. 寬鬆美化 CSS (標籤同大 + 佈局放鬆) ---
+# --- 3. CSS 進階美化 (精準控制間距) ---
 st.markdown("""
     <style>
-    /* 讓整體介面往下一點，並增加呼吸感 */
+    /* 整體版面位置 */
     .block-container { 
-        padding-top: 3.5rem !important; 
+        padding-top: 3rem !important; 
         padding-bottom: 2rem !important; 
-        max-width: 1100px; /* 限制最大寬度讓視覺更集中 */
+        max-width: 1100px; 
     }
     
-    .main-title { font-size: 28px !important; font-weight: 800; color: #1E1E1E; margin-bottom: 25px; text-align: center; }
+    .main-title { font-size: 28px !important; font-weight: 800; color: #1E1E1E; margin-bottom: 20px; text-align: center; }
     
-    /* Step 標題 - 加大並增加間距 */
+    /* Step 標題樣式 - 調整間距使 Step 2 往上靠 */
     .step-text { 
         font-size: 22px !important; 
         font-weight: 700; 
         color: #1E1E1E; 
-        margin-bottom: 18px; 
-        margin-top: 20px;
+        margin-bottom: 12px; 
+        margin-top: 10px; /* 縮小頂部間距 */
         display: flex;
         align-items: center;
     }
@@ -47,7 +47,7 @@ st.markdown("""
         font-size: 18px;
     }
     
-    /* 欄位標籤 - 中英文大小一致 16px */
+    /* 欄位標籤 - 中英文 16px 同大 */
     .field-label { 
         font-size: 16px !important; 
         color: #333; 
@@ -62,7 +62,7 @@ st.markdown("""
         margin-left: 5px;
     }
     
-    /* 按鈕樣式 */
+    /* 搜尋按鈕樣式 */
     .stLinkButton > a {
         background: linear-gradient(135deg, #4285F4 0%, #3367D6 100%) !important;
         color: white !important;
@@ -77,46 +77,42 @@ st.markdown("""
         margin-top: 10px;
     }
 
-    /* 增加 Widget 之間的垂直間距 */
-    [data-testid="stVerticalBlock"] { gap: 1.2rem !important; }
+    /* 調整元件間距 */
+    [data-testid="stVerticalBlock"] { gap: 1rem !important; }
     
-    /* 容器內部間距 */
-    .stSecondaryContainer { padding: 1.5rem !important; }
-    
-    /* Checkbox 間距 */
-    .stCheckbox { margin-top: 5px; margin-bottom: 5px; }
+    /* 調整摘要資訊框 */
+    .stAlert { padding: 0.8rem 1.2rem !important; border-radius: 12px !important; }
+
+    /* Checkbox 樣式微調 */
+    .stCheckbox { margin-top: 5px; }
     </style>
     <div class="main-title">💡 全球專利進階搜尋儀表板</div>
     """, unsafe_allow_html=True)
 
-# --- 4. 介面輸入區 ---
+# --- 4. Step 1: 輸入區 ---
 st.markdown('<div class="step-text"><span class="step-num">1</span> 填寫條件 Fill Conditions</div>', unsafe_allow_html=True)
 
 with st.container(border=True):
-    col1, col2 = st.columns(2, gap="large") # 增加左右欄位的間距
+    col1, col2 = st.columns(2, gap="large")
     
     with col1:
-        # 技術關鍵字
         st.markdown('<span class="field-label">技術關鍵字 <span class="label-en-span">Technology Keywords</span></span>', unsafe_allow_html=True)
         sub_c1, sub_c2 = st.columns(2)
         kw1 = sub_c1.text_input("主", placeholder="例如: Bipolar", key="k1", label_visibility="collapsed")
         kw2 = sub_c2.text_input("次", placeholder="例如: irrigat", key="k2", label_visibility="collapsed")
         exact_kw = st.checkbox("關鍵字精準比對 Exact Match", value=False, key="ex_kw")
         
-        # 專利權人
         st.markdown('<span class="field-label">專利權人 (公司) <span class="label-en-span">Assignee / Company</span></span>', unsafe_allow_html=True)
         assignee = st.text_input("公司", placeholder="例如: Medtronic", key="k3", label_visibility="collapsed")
         exact_as = st.checkbox("公司精準比對 Exact Assignee", value=True, key="ex_as")
     
     with col2:
-        # 發明人與 CPC
         st.markdown('<span class="field-label">發明人與分類 <span class="label-en-span">Inventor & CPC</span></span>', unsafe_allow_html=True)
         sub_i1, sub_i2 = st.columns(2)
         inventor = sub_i1.text_input("發明人", placeholder="例如: MALIS", key="k5", label_visibility="collapsed")
         cpc = sub_i2.text_input("CPC", placeholder="例如: A61B18", key="k4", label_visibility="collapsed")
         exact_iv = st.checkbox("發明人精準比對 Exact Inventor", value=True, key="ex_iv")
         
-        # 顯示設定
         st.markdown('<span class="field-label">每頁顯示筆數 <span class="label-en-span">Results Per Page</span></span>', unsafe_allow_html=True)
         p_limit = st.selectbox("筆數", [10, 20, 50, 100], index=1, label_visibility="collapsed")
 
@@ -139,8 +135,11 @@ if inventor:
 if cpc: params['cpc'] = ultimate_clean(cpc)
 params['num'] = p_limit
 
-# --- 6. 確認與搜尋區 ---
+# --- 6. Step 2: 確認與搜尋區 (往上微調) ---
 if params:
+    # 使用空白或微小間距代替 st.divider()
+    st.write("") 
+    
     st.markdown('<div class="step-text"><span class="step-num">2</span> 確認並搜尋 Confirm & Search</div>', unsafe_allow_html=True)
     
     # 預覽摘要
@@ -152,16 +151,14 @@ if params:
     
     st.info(" | ".join(summary))
 
-    # 生成網址並建立大按鈕
     query_string = urllib.parse.urlencode(params)
     google_url = f"https://patents.google.com/?{query_string}"
     
     st.link_button(f"🚀 前往 Google Patents 檢索結果", google_url, use_container_width=True)
 
 else:
-    # 保持一點底部空間感
     st.write("")
-    st.info("💡 請填寫上方欄位以開始檢索流程。")
+    st.info("💡 請於上方填寫至少一個欄位以開始檢索。")
 
 # 頁尾
-st.markdown("<br><br><div style='text-align: center; color: #ccc; font-size: 11px;'>Global Patent Advanced Search Dashboard | v5.0 relaxed layout</div>", unsafe_allow_html=True)
+st.markdown("<br><div style='text-align: center; color: #ccc; font-size: 11px;'>Global Patent Advanced Search Dashboard | v5.1 layout-adjusted</div>", unsafe_allow_html=True)
