@@ -12,25 +12,28 @@ def ultimate_clean(text):
         return clean.strip()
     return ""
 
-# --- 3. CSS 進階美化 (精準控制間距) ---
+# --- 3. CSS 終極優化 (解決標題遮擋 + 階梯式緊湊佈局) ---
 st.markdown("""
     <style>
-    /* 整體版面位置 */
+    /* 1. 修正標題遮擋：確保內容在 Streamlit Header 下方 */
     .block-container { 
-        padding-top: 3rem !important; 
-        padding-bottom: 2rem !important; 
+        padding-top: 5rem !important; 
+        padding-bottom: 1rem !important; 
         max-width: 1100px; 
     }
     
-    .main-title { font-size: 28px !important; font-weight: 800; color: #1E1E1E; margin-bottom: 20px; text-align: center; }
+    /* 隱藏頂部裝飾條(可選)讓視覺更乾淨 */
+    header {visibility: hidden;}
+
+    .main-title { font-size: 28px !important; font-weight: 800; color: #1E1E1E; margin-bottom: 15px; text-align: center; }
     
-    /* Step 標題樣式 - 調整間距使 Step 2 往上靠 */
+    /* 2. Step 標題樣式 - 極致緊密 */
     .step-text { 
         font-size: 22px !important; 
         font-weight: 700; 
         color: #1E1E1E; 
-        margin-bottom: 12px; 
-        margin-top: 10px; /* 縮小頂部間距 */
+        margin-bottom: 5px !important; 
+        margin-top: 0px !important; /* 完全移除頂部間距 */
         display: flex;
         align-items: center;
     }
@@ -47,44 +50,40 @@ st.markdown("""
         font-size: 18px;
     }
     
-    /* 欄位標籤 - 中英文 16px 同大 */
+    /* 3. 欄位標籤 - 中英文 16px */
     .field-label { 
         font-size: 16px !important; 
         color: #333; 
         display: block; 
-        margin-bottom: 8px; 
-        margin-top: 15px; 
+        margin-bottom: 4px; 
+        margin-top: 10px; 
         font-weight: 700; 
     }
-    .label-en-span { 
-        font-size: 16px !important; 
-        font-weight: 700; 
-        margin-left: 5px;
-    }
+    .label-en-span { font-size: 16px !important; font-weight: 700; margin-left: 5px; }
     
-    /* 搜尋按鈕樣式 */
+    /* 4. 緊實按鈕樣式 */
     .stLinkButton > a {
         background: linear-gradient(135deg, #4285F4 0%, #3367D6 100%) !important;
         color: white !important;
         border-radius: 12px !important;
         font-size: 22px !important;
         font-weight: 800 !important;
-        padding: 1rem !important;
+        padding: 0.8rem !important;
         text-align: center !important;
         border: none !important;
         display: block !important;
-        box-shadow: 0 8px 20px rgba(66, 133, 244, 0.25) !important;
-        margin-top: 10px;
+        box-shadow: 0 5px 15px rgba(66, 133, 244, 0.2) !important;
+        margin-top: 5px !important;
     }
 
-    /* 調整元件間距 */
-    [data-testid="stVerticalBlock"] { gap: 1rem !important; }
+    /* 5. 極致壓縮組件間距 */
+    [data-testid="stVerticalBlock"] { gap: 0.3rem !important; } /* 垂直間距極小化 */
+    [data-testid="stVerticalBlock"] > div { margin-top: -0.1rem !important; }
     
-    /* 調整摘要資訊框 */
-    .stAlert { padding: 0.8rem 1.2rem !important; border-radius: 12px !important; }
+    /* 壓縮摘要資訊框 */
+    .stAlert { padding: 0.5rem 1rem !important; border-radius: 10px !important; border: 1px solid #e0e0e0 !important; }
 
-    /* Checkbox 樣式微調 */
-    .stCheckbox { margin-top: 5px; }
+    .stCheckbox { margin-top: -5px; }
     </style>
     <div class="main-title">💡 全球專利進階搜尋儀表板</div>
     """, unsafe_allow_html=True)
@@ -135,11 +134,9 @@ if inventor:
 if cpc: params['cpc'] = ultimate_clean(cpc)
 params['num'] = p_limit
 
-# --- 6. Step 2: 確認與搜尋區 (往上微調) ---
+# --- 6. Step 2: 確認與搜尋區 (貼合級緊密) ---
 if params:
-    # 使用空白或微小間距代替 st.divider()
-    st.write("") 
-    
+    # 這裡完全不再使用 st.write 或 st.divider，讓 Step 2 標題緊貼 Step 1 容器
     st.markdown('<div class="step-text"><span class="step-num">2</span> 確認並搜尋 Confirm & Search</div>', unsafe_allow_html=True)
     
     # 預覽摘要
@@ -157,8 +154,7 @@ if params:
     st.link_button(f"🚀 前往 Google Patents 檢索結果", google_url, use_container_width=True)
 
 else:
-    st.write("")
-    st.info("💡 請於上方填寫至少一個欄位以開始檢索。")
+    st.info("💡 請填寫檢索條件以啟用搜尋。")
 
 # 頁尾
-st.markdown("<br><div style='text-align: center; color: #ccc; font-size: 11px;'>Global Patent Advanced Search Dashboard | v5.1 layout-adjusted</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: center; color: #eee; font-size: 10px; margin-top: 10px;'>Global Patent Advanced Search Dashboard | v5.2 Ultra-Compact</div>", unsafe_allow_html=True)
