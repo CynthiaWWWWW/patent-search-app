@@ -5,61 +5,93 @@ import re
 # --- 1. 頁面基本設定 ---
 st.set_page_config(page_title="Patent Search Dashboard", page_icon="💡", layout="wide")
 
-# --- 2. 強效清理函式 ---
+# --- 2. 強效清理函式：確保字串中完全沒有括號與分號 ---
 def ultimate_clean(text):
     if text:
-        # 只保留字母、數字、空格、引號、冒號 (移除所有括號、分號、特殊符號)
+        # 移除任何括號、中括號、大括號與分號
         clean = re.sub(r'[()\[\]{};]', '', str(text))
         return clean.strip()
     return ""
 
-# --- 3. 介面輸入區 ---
-st.markdown("### 🚀 Google Patents 指令產生器 (V3 終極版)")
+# --- 3. CSS 美化介面 ---
+st.markdown("""
+    <style>
+    .main-title { font-size: 22px !important; font-weight: 700; color: #1E1E1E; margin-bottom: 15px; }
+    .label-en { font-size: 12px; color: #666; display: block; margin-bottom: -5px; }
+    </style>
+    <div class="main-title">💡 全球專利進階搜尋儀表板 (No-Bracket Version)</div>
+    """, unsafe_allow_html=True)
 
+# --- 4. 介面輸入區 ---
+st.markdown("### 🚀 Google Patents 指令產生器")
 with st.container(border=True):
     col1, col2 = st.columns(2)
     with col1:
+        st.markdown('<span class="label-en">Primary Keywords</span>', unsafe_allow_html=True)
         kw1 = st.text_input("主要技術關鍵字", placeholder="例如: Bipolar", key="k1")
+        
+        st.markdown('<span class="label-en">Secondary Keywords</span>', unsafe_allow_html=True)
         kw2 = st.text_input("次要技術關鍵字", placeholder="例如: irrigat", key="k2")
+        
+        st.markdown('<span class="label-en">Assignee / Company</span>', unsafe_allow_html=True)
         assignee = st.text_input("專利權人 (公司)", placeholder="例如: KIRWAN", key="k3")
     
     with col2:
-        cpc = st.text_input("CPC 分類號", key="k4")
-        inventor = st.text_input("發明人", key="k5")
+        st.markdown('<span class="label-en">CPC Classification</span>', unsafe_allow_html=True)
+        cpc = st.text_input("CPC 分類號", placeholder="例如: A61B18/14", key="k4")
+
+        st.markdown('<span class="label-en">Inventor Name</span>', unsafe_allow_html=True)
+        inventor = st.text_input("發明人", placeholder="例如: Smith", key="k5")
+        
         p_limit = st.selectbox("每頁顯示筆數", [10, 20, 50, 100], index=1)
 
-# --- 4. 核心邏輯：手動構建乾淨的字串 ---
-query_list = []
+# --- 5. 核心邏輯：參數拆解 (關鍵！解決括號問題的終極方案) ---
+# 我們不把所有條件拼在一起，而是分開存放在字典中
+params = {}
 
-# 個別清理並加入列表
-if kw1: query_list.append(ultimate_clean(kw1))
-if kw2: query_list.append(ultimate_clean(kw2))
-if assignee: query_list.append(f'assignee:"{ultimate_clean(assignee)}"')
-if inventor: query_list.append(f'inventor:"{ultimate_clean(inventor)}"')
-if cpc: query_list.append(f'cpc:{ultimate_clean(cpc)}')
+# 處理關鍵字 (放在 q 參數中)
+kws = []
+if kw1: kws.append(ultimate_clean(kw1))
+if kw2: kws.append(ultimate_clean(kw2))
+if kws:
+    params['q'] = " ".join(kws)
 
-# 將列表結合為單一字串，並進行最終檢查
-# 確保這是一個純 String (str)，絕對不是 Tuple
-raw_query_string = " ".join(query_list)
-final_query = str(raw_query_string).replace("(", "").replace(")", "").strip()
+# 處理專利權人 (獨立參數，不進 q)
+if assignee:
+    params['assignee'] = ultimate_clean(assignee)
 
-# --- 5. 顯示與輸出 ---
-if final_query:
+# 處理發明人 (獨立參數)
+if inventor:
+    params['inventor'] = ultimate_clean(inventor)
+
+# 處理 CPC 分類 (獨立參數)
+if cpc:
+    params['cpc'] = ultimate_clean(cpc)
+
+# 結果筆數
+params['num'] = p_limit
+
+# --- 6. 生成網址與顯示 ---
+if params:
     st.divider()
     
-    # 【除錯區】讓你確認程式內部的字串是否乾淨
-    with st.expander("🔍 系統內部字串檢查 (Debug)"):
-        st.write(f"目前字串內容: `{final_query}`")
-        st.write(f"字串型別: `{type(final_query)}`")
-
-    # 使用 quote_plus 把空格變成 +，這能防止 Google 自動加括號
-    encoded_query = urllib.parse.quote_plus(final_query)
-    google_url = f"https://patents.google.com/?q={encoded_query}&num={p_limit}"
+    # 建立 URL 編碼的查詢字串
+    # 這會生成類似 q=keyword&assignee=COMPANY&cpc=CPC... 的結構
+    query_string = urllib.parse.urlencode(params)
+    google_url = f"https://patents.google.com/?{query_string}"
     
-    st.info(f"生成的指令: **{final_query}**")
-    
-    # 這裡改用 st.link_button，這是 Streamlit 官方更新的按鈕組件，較穩定
-    st.link_button("🔍 前往 Google Patents 搜尋", google_url, use_container_width=True, type="primary")
+    # 顯示目前條件摘要
+    st.markdown("#### 📋 檢索條件確認")
+    st.info(f"技術關鍵字: {params.get('q', '無')} | 專利權人: {params.get('assignee', '無')} | 分類號: {params.get('cpc', '無')}")
 
+    # 使用 Streamlit 官方按鈕組件跳轉
+    st.link_button("🔍 點此前往 Google Patents 搜尋 (已優化 URL 結構)", google_url, use_container_width=True, type="primary")
+    
+    # 除錯資訊 (可選)
+    with st.expander("🛠️ 查看生成的完整網址"):
+        st.code(google_url)
 else:
-    st.info("💡 請填寫欄位以生成指令。")
+    st.info("💡 請在上方欄位填寫至少一個搜尋條件。")
+
+st.divider()
+st.caption("註：此版本透過拆解參數傳送至 Google 進階搜尋欄位，可最大程度避免搜尋框出現自動分組括號 ()。")
