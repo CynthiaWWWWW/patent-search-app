@@ -18,7 +18,7 @@ st.markdown("""
     <div class="main-title">💡 全球專利進階搜尋儀表板 (Global Patent Advanced Search)</div>
     """, unsafe_allow_html=True)
 
-# --- 側邊欄：資訊 / Sidebar Info ---
+# --- 側邊欄 ---
 with st.sidebar:
     st.write("### ℹ️ 系統狀態 (System Info)")
     st.write("**USPTO API Status:** ⚠️ Restricted")
@@ -29,17 +29,20 @@ with st.sidebar:
     st.caption("2. 系統會自動生成 Google 專用的搜尋指令。")
     st.caption("3. 點擊藍色大按鈕直接跳轉查看結果。")
 
-# ==========================================
-# 核心內容：專利進階搜尋產生器
-# ==========================================
+# --- 核心內容 ---
 st.markdown("### 🚀 Google Patents 指令產生器 (Command Generator)")
 st.caption("填寫欄位自動生成進階搜尋字串 / Fill fields to generate professional search string.")
 
 with st.container(border=True):
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown('<span class="label-en">Technology Keywords</span>', unsafe_allow_html=True)
-        g_kw = st.text_input("技術關鍵字", placeholder="例如: Bipolar Electrosurgical", key="g1")
+        # 技術關鍵字 1
+        st.markdown('<span class="label-en">Primary Keywords (e.g. Core Tech)</span>', unsafe_allow_html=True)
+        g_kw = st.text_input("核心技術關鍵字", placeholder="例如: Bipolar Electrosurgical", key="g1")
+        
+        # 技術關鍵字 2 (新增)
+        st.markdown('<span class="label-en">Secondary Keywords (e.g. Application/Material)</span>', unsafe_allow_html=True)
+        g_kw2 = st.text_input("次要技術/應用關鍵字", placeholder="例如: Robotic Surgery", key="g1_2")
         
         st.markdown('<span class="label-en">Assignee / Company</span>', unsafe_allow_html=True)
         g_assignee = st.text_input("專利權人 (公司)", placeholder="例如: Medtronic", key="g2")
@@ -48,7 +51,7 @@ with st.container(border=True):
         g_cpc = st.text_input("CPC 分類號", placeholder="例如: A61B18/14", key="g3")
     
     with col2:
-        st.markdown('<span class="label-en">Publication Date Range (after/before)</span>', unsafe_allow_html=True)
+        st.markdown('<span class="label-en">Publication Date Range</span>', unsafe_allow_html=True)
         sub_c1, sub_c2 = st.columns(2)
         with sub_c1: g_after = st.date_input("日期起始 (From)", value=None, key="g4")
         with sub_c2: g_before = st.date_input("日期結束 (To)", value=None, key="g5")
@@ -58,9 +61,10 @@ with st.container(border=True):
         
         p_limit = st.selectbox("每頁顯示筆數 (Results Per Page)", [10, 20, 50, 100], index=1)
 
-# --- 核心邏輯：自動生成字串 / Command Building ---
+# --- 邏輯處理 ---
 query_parts = []
 if g_kw: query_parts.append(g_kw)
+if g_kw2: query_parts.append(g_kw2) # 加入第二組關鍵字
 if g_assignee: query_parts.append(f'assignee:"{g_assignee}"')
 if g_inventor: query_parts.append(f'inventor:"{g_inventor}"')
 if g_cpc: query_parts.append(f'cpc:{g_cpc}')
@@ -69,13 +73,12 @@ if g_before: query_parts.append(f'before:{g_before.strftime("%Y%m%d")}')
 
 final_query = " ".join(query_parts)
 
-# 顯示生成的字串與按鈕
+# 顯示與按鈕
 if final_query:
     st.markdown("---")
     st.markdown("#### 🛠️ 生成的指令 (Generated Command):")
     st.code(final_query, language="bash")
     
-    # 建立跳轉連結 / URL Encoding
     encoded_query = urllib.parse.quote(final_query)
     google_url = f"https://patents.google.com/?q={encoded_query}&num={p_limit}"
     
@@ -87,8 +90,7 @@ if final_query:
         </a>
     """, unsafe_allow_html=True)
 else:
-    st.info("💡 請填寫上方任一欄位以生成搜尋指令 (Please fill fields to generate command).")
+    st.info("💡 請填寫上方任一欄位以生成搜尋指令。")
 
-# 頁尾說明
 st.divider()
-st.caption("Disclaimer: This tool generates search strings for Google Patents and does not guarantee complete FTO analysis.")
+st.caption("Disclaimer: This tool generates search strings for Google Patents.")
