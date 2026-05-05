@@ -4,93 +4,82 @@ import json
 from datetime import datetime
 import urllib.parse
 
-# --- 頁面基本設定 / Page Config ---
+# --- 頁面基本設定 ---
 st.set_page_config(page_title="Patent Search Dashboard", page_icon="💡", layout="wide")
 
-# --- CSS 美化介面 / Custom CSS ---
+# --- 清理函式：自動移除括號 ---
+def clean_str(text):
+    if text:
+        # 移除左括號、右括號並修剪前後空格
+        return str(text).replace("(", "").replace(")", "").strip()
+    return ""
+
+# --- CSS 美化 ---
 st.markdown("""
     <style>
     .main-title { font-size: 22px !important; font-weight: 700; color: #1E1E1E; margin-bottom: 15px; }
-    .search-box { background-color: #f8f9fa; padding: 20px; border-radius: 10px; border: 1px solid #dee2e6; }
     .label-en { font-size: 12px; color: #666; display: block; margin-bottom: -5px; }
-    .stButton>button { width: 100%; border-radius: 8px; height: 3em; font-weight: bold; }
     </style>
     <div class="main-title">💡 全球專利進階搜尋儀表板 (Global Patent Advanced Search)</div>
     """, unsafe_allow_html=True)
 
-# --- 側邊欄 ---
-with st.sidebar:
-    st.write("### ℹ️ 系統狀態 (System Info)")
-    st.write("**USPTO API Status:** ⚠️ Restricted")
-    st.write("**Google Patents:** ✅ Online")
-    st.divider()
-    st.write("### 📖 快速教學 (Quick Tip)")
-    st.caption("1. 填寫關鍵字、公司或 CPC 分類。")
-    st.caption("2. 系統會自動生成 Google 專用的搜尋指令。")
-    st.caption("3. 點擊藍色大按鈕直接跳轉查看結果。")
-
 # --- 核心內容 ---
-st.markdown("### 🚀 Google Patents 指令產生器 (Command Generator)")
-st.caption("填寫欄位自動生成進階搜尋字串 / Fill fields to generate professional search string.")
+st.markdown("### 🚀 Google Patents 指令產生器")
 
 with st.container(border=True):
     col1, col2 = st.columns(2)
     with col1:
-        # 技術關鍵字 1
-        st.markdown('<span class="label-en">Primary Keywords (e.g. Core Tech)</span>', unsafe_allow_html=True)
-        g_kw = st.text_input("核心技術關鍵字", placeholder="例如: Bipolar Electrosurgical", key="g1")
+        st.markdown('<span class="label-en">Primary Keywords</span>', unsafe_allow_html=True)
+        g_kw = st.text_input("主要技術關鍵字", placeholder="例如: Bipolar Electrosurgical", key="g1")
         
-        # 技術關鍵字 2 (新增)
-        st.markdown('<span class="label-en">Secondary Keywords (e.g. Application/Material)</span>', unsafe_allow_html=True)
+        st.markdown('<span class="label-en">Secondary Keywords</span>', unsafe_allow_html=True)
         g_kw2 = st.text_input("次要技術/應用關鍵字", placeholder="例如: Robotic Surgery", key="g1_2")
         
         st.markdown('<span class="label-en">Assignee / Company</span>', unsafe_allow_html=True)
         g_assignee = st.text_input("專利權人 (公司)", placeholder="例如: Medtronic", key="g2")
-        
-        st.markdown('<span class="label-en">CPC Classification</span>', unsafe_allow_html=True)
-        g_cpc = st.text_input("CPC 分類號", placeholder="例如: A61B18/14", key="g3")
     
     with col2:
-        st.markdown('<span class="label-en">Publication Date Range</span>', unsafe_allow_html=True)
-        sub_c1, sub_c2 = st.columns(2)
-        with sub_c1: g_after = st.date_input("日期起始 (From)", value=None, key="g4")
-        with sub_c2: g_before = st.date_input("日期結束 (To)", value=None, key="g5")
-        
+        st.markdown('<span class="label-en">CPC Classification</span>', unsafe_allow_html=True)
+        g_cpc = st.text_input("CPC 分類號", placeholder="例如: A61B18/14", key="g3")
+
         st.markdown('<span class="label-en">Inventor Name</span>', unsafe_allow_html=True)
         g_inventor = st.text_input("發明人", placeholder="例如: Smith", key="g6")
         
-        p_limit = st.selectbox("每頁顯示筆數 (Results Per Page)", [10, 20, 50, 100], index=1)
+        p_limit = st.selectbox("每頁顯示筆數", [10, 20, 50, 100], index=1)
 
-# --- 邏輯處理 ---
+# --- 核心邏輯：自動生成字串並移除括號 ---
 query_parts = []
-if g_kw: query_parts.append(g_kw)
-if g_kw2: query_parts.append(g_kw2) # 加入第二組關鍵字
-if g_assignee: query_parts.append(f'assignee:"{g_assignee}"')
-if g_inventor: query_parts.append(f'inventor:"{g_inventor}"')
-if g_cpc: query_parts.append(f'cpc:{g_cpc}')
-if g_after: query_parts.append(f'after:{g_after.strftime("%Y%m%d")}')
-if g_before: query_parts.append(f'before:{g_before.strftime("%Y%m%d")}')
+
+# 對每個欄位使用 clean_str 進行過濾
+if g_kw: 
+    query_parts.append(clean_str(g_kw))
+if g_kw2: 
+    query_parts.append(clean_str(g_kw2))
+if g_assignee: 
+    query_parts.append(f'assignee:"{clean_str(g_assignee)}"')
+if g_inventor: 
+    query_parts.append(f'inventor:"{clean_str(g_inventor)}"')
+if g_cpc: 
+    query_parts.append(f'cpc:{clean_str(g_cpc)}')
 
 final_query = " ".join(query_parts)
 
-# 顯示與按鈕
+# --- 顯示與按鈕 ---
 if final_query:
     st.markdown("---")
-    st.markdown("#### 🛠️ 生成的指令 (Generated Command):")
+    st.markdown("#### 🛠️ 生成的指令 (不含括號):")
     st.code(final_query, language="bash")
     
+    # 進行 URL 編碼
     encoded_query = urllib.parse.quote(final_query)
     google_url = f"https://patents.google.com/?q={encoded_query}&num={p_limit}"
     
     st.markdown(f"""
         <a href="{google_url}" target="_blank" style="text-decoration: none;">
-            <div style="background-color: #4285F4; color: white; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 18px; border: 2px solid #3367d6; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                🔍 點此前往 Google Patents 搜尋 (Go to Google Patents)
+            <div style="background-color: #4285F4; color: white; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 18px; border: 2px solid #3367d6;">
+                🔍 點此前往 Google Patents 搜尋
             </div>
         </a>
     """, unsafe_allow_html=True)
 else:
-    st.info("💡 請填寫上方任一欄位以生成搜尋指令。")
-
-st.divider()
-st.caption("Disclaimer: This tool generates search strings for Google Patents.")
+    st.info("💡 請填寫欄位以生成指令。")
